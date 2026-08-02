@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildTrackGroup } from "../test-support/playlist-fixtures";
 import {
 	advanceToNext,
 	advanceToPrevious,
@@ -8,11 +9,10 @@ import {
 	hasPreviousTrack,
 	startShufflePlay,
 } from "./playback-session";
-import { createTrackGroup } from "./playlist";
 import { parseTrack } from "./track";
 
 function trackGroupsOf(...urls: string[]) {
-	return [createTrackGroup("", urls.map(parseTrack))];
+	return [buildTrackGroup(urls.map(parseTrack))];
 }
 
 describe("startShufflePlay", () => {

@@ -20,23 +20,11 @@ export function createPlaylist(name: string): Playlist {
 	return { id: crypto.randomUUID() as PlaylistId, name, trackGroups: [] };
 }
 
-/**
- * @public 現在の唯一の生産コード呼び出し元は同一ファイル内の`addTrackFromUrl`だが、
- * 複数Trackを1つのTrackGroupへまとめる操作(ADR 0001のロードマップ)が実装され次第、
- * UIから直接呼び出される想定の公開コンストラクタである。
- */
-export function createTrackGroup(
-	name: string,
-	tracks: readonly Track[],
-): TrackGroup {
+function createTrackGroup(name: string, tracks: readonly Track[]): TrackGroup {
 	return { id: crypto.randomUUID() as TrackGroupId, name, tracks };
 }
 
-/** @public {@link createTrackGroup}と同様、将来のUIから直接利用される想定の公開API。 */
-export function addTrackGroup(
-	playlist: Playlist,
-	trackGroup: TrackGroup,
-): Playlist {
+function addTrackGroup(playlist: Playlist, trackGroup: TrackGroup): Playlist {
 	return { ...playlist, trackGroups: [...playlist.trackGroups, trackGroup] };
 }
 
@@ -73,4 +61,53 @@ export function addTrackFromUrl(
 		ok: true,
 		playlist: addTrackGroup(playlist, createTrackGroup("", [track])),
 	};
+}
+
+export type MergeTrackGroupsResult =
+	| Readonly<{ ok: true; playlist: Playlist }>
+	| Readonly<{ ok: false; error: string }>;
+
+/**
+ * 選択された複数の`TrackGroup`を、Track順序を維持したまま1つの`TrackGroup`へまとめる。
+ * まとめた`TrackGroup`は、選択されたもののうち最も先頭にあった位置に挿入され、
+ * 未選択の`TrackGroup`同士の相対順序は変化しない。
+ */
+export function mergeTrackGroups(
+	playlist: Playlist,
+	trackGroupIds: readonly TrackGroup["id"][],
+): MergeTrackGroupsResult {
+	const targetIds = new Set(trackGroupIds);
+	if (targetIds.size < 2) {
+		return {
+			ok: false,
+			error: "まとめるにはTrackGroupを2つ以上選択してください",
+		};
+	}
+
+	const targets = playlist.trackGroups.filter((trackGroup) =>
+		targetIds.has(trackGroup.id),
+	);
+	if (targets.length !== targetIds.size) {
+		return { ok: false, error: "存在しないTrackGroupが指定されました" };
+	}
+
+	const merged = createTrackGroup(
+		"",
+		targets.flatMap((trackGroup) => trackGroup.tracks),
+	);
+
+	const trackGroups: TrackGroup[] = [];
+	let mergedInserted = false;
+	for (const trackGroup of playlist.trackGroups) {
+		if (!targetIds.has(trackGroup.id)) {
+			trackGroups.push(trackGroup);
+			continue;
+		}
+		if (!mergedInserted) {
+			trackGroups.push(merged);
+			mergedInserted = true;
+		}
+	}
+
+	return { ok: true, playlist: { ...playlist, trackGroups } };
 }

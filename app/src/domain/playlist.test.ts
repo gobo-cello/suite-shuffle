@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+	buildPlaylist,
+	buildTrackGroup,
+} from "../test-support/playlist-fixtures";
+import {
 	addTrackFromUrl,
-	addTrackGroup,
 	createPlaylist,
-	createTrackGroup,
+	mergeTrackGroups,
 	removeTrackGroup,
 } from "./playlist";
 import { parseTrack } from "./track";
@@ -24,34 +27,10 @@ describe("createPlaylist", () => {
 	});
 });
 
-describe("createTrackGroup", () => {
-	it("creates a track group with the given name and tracks in order", () => {
-		const first = parseTrack("https://www.youtube.com/watch?v=aaaaaaaaaaa");
-		const second = parseTrack("https://www.youtube.com/watch?v=bbbbbbbbbbb");
-
-		const trackGroup = createTrackGroup("交響曲第5番", [first, second]);
-
-		expect(trackGroup.name).toBe("交響曲第5番");
-		expect(trackGroup.tracks).toEqual([first, second]);
-	});
-});
-
-describe("addTrackGroup", () => {
-	it("appends a track group without mutating the original playlist", () => {
-		const playlist = createPlaylist("");
-		const trackGroup = createTrackGroup("", []);
-
-		const updated = addTrackGroup(playlist, trackGroup);
-
-		expect(updated.trackGroups).toEqual([trackGroup]);
-		expect(playlist.trackGroups).toEqual([]);
-	});
-});
-
 describe("removeTrackGroup", () => {
 	it("removes the matching track group without mutating the original playlist", () => {
-		const trackGroup = createTrackGroup("", []);
-		const playlist = addTrackGroup(createPlaylist(""), trackGroup);
+		const trackGroup = buildTrackGroup();
+		const playlist = buildPlaylist([trackGroup]);
 
 		const updated = removeTrackGroup(playlist, trackGroup.id);
 
@@ -60,10 +39,10 @@ describe("removeTrackGroup", () => {
 	});
 
 	it("leaves the playlist unchanged when the id doesn't match any track group", () => {
-		const trackGroup = createTrackGroup("", []);
-		const playlist = addTrackGroup(createPlaylist(""), trackGroup);
+		const trackGroup = buildTrackGroup();
+		const playlist = buildPlaylist([trackGroup]);
 
-		const updated = removeTrackGroup(playlist, createTrackGroup("", []).id);
+		const updated = removeTrackGroup(playlist, buildTrackGroup().id);
 
 		expect(updated.trackGroups).toEqual([trackGroup]);
 	});
@@ -105,6 +84,63 @@ describe("addTrackFromUrl", () => {
 			ok: false,
 			error:
 				"YouTubeまたはYouTube Musicの動画URLとして認識できません: https://vimeo.com/12345678",
+		});
+	});
+});
+
+describe("mergeTrackGroups", () => {
+	it("merges the tracks of the selected track groups in playlist order, at the position of the first selected group", () => {
+		const trackA = parseTrack("https://www.youtube.com/watch?v=aaaaaaaaaaa");
+		const trackB = parseTrack("https://www.youtube.com/watch?v=bbbbbbbbbbb");
+		const trackC = parseTrack("https://www.youtube.com/watch?v=ccccccccccc");
+		const groupA = buildTrackGroup([trackA]);
+		const groupB = buildTrackGroup([trackB]);
+		const groupC = buildTrackGroup([trackC]);
+		const playlist = buildPlaylist([groupA, groupB, groupC]);
+
+		const result = mergeTrackGroups(playlist, [groupA.id, groupC.id]);
+
+		expect(result.ok).toBe(true);
+		expect(result.ok && result.playlist.trackGroups).toEqual([
+			{ id: expect.any(String), name: "", tracks: [trackA, trackC] },
+			groupB,
+		]);
+	});
+
+	it("does not mutate the original playlist", () => {
+		const groupA = buildTrackGroup();
+		const groupB = buildTrackGroup();
+		const playlist = buildPlaylist([groupA, groupB]);
+
+		mergeTrackGroups(playlist, [groupA.id, groupB.id]);
+
+		expect(playlist.trackGroups).toEqual([groupA, groupB]);
+	});
+
+	it("returns an error when fewer than two track groups are selected", () => {
+		const groupA = buildTrackGroup();
+		const playlist = buildPlaylist([groupA]);
+
+		const result = mergeTrackGroups(playlist, [groupA.id]);
+
+		expect(result).toEqual({
+			ok: false,
+			error: "まとめるにはTrackGroupを2つ以上選択してください",
+		});
+	});
+
+	it("returns an error when a selected id doesn't match any track group in the playlist", () => {
+		const groupA = buildTrackGroup();
+		const playlist = buildPlaylist([groupA]);
+
+		const result = mergeTrackGroups(playlist, [
+			groupA.id,
+			buildTrackGroup().id,
+		]);
+
+		expect(result).toEqual({
+			ok: false,
+			error: "存在しないTrackGroupが指定されました",
 		});
 	});
 });
