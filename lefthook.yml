@@ -23,6 +23,9 @@ pre-push:
     app-build:
       glob: "app/**/*"
       run: npm run --prefix app build
+    app-test:
+      glob: "app/**/*"
+      run: npm --prefix app test
     knip:
       run: npm run knip
     knip-production:
