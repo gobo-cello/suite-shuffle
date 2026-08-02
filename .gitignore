@@ -8,7 +8,7 @@ node_modules
 
 # CDK asset staging directory
 .cdk.staging
-cdk.out
+cdk.out*
 
 # Local environment values
 .env
