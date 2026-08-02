@@ -96,8 +96,7 @@ suite-shuffle/
 
 `app/`のMVPにおけるデータモデル・技術選定・UI設計方針(モードレスデザインの採用など)は[ADR 0001](./docs/adr/0001-mvp-implementation-approach.md)を参照してください。ADR 0001の実装順序に対する現在の実装状況は次のとおりです。
 
-- 実装済み: `Track`/`TrackGroup`/`Playlist`のドメインモデルとURLパーサー(`app/src/domain/`)、`localStorage`による永続化(`app/src/storage/`)、YouTube IFrame Player APIによる再生と`TrackGroup`単位のシャッフル(`app/src/player/`)
-- 一部実装: プレイリスト管理UI(`app/src/App.tsx`)。URLを貼り付けて`TrackGroup`を追加・削除できるが、1つのURLが1つの`TrackGroup`になる暫定仕様で、複数`Track`を1つの`TrackGroup`にまとめる操作はまだ実装していません
+- 実装済み: `Track`/`TrackGroup`/`Playlist`のドメインモデルとURLパーサー(`app/src/domain/`)、`localStorage`による永続化(`app/src/storage/`)、YouTube IFrame Player APIによる再生と`TrackGroup`単位のシャッフル(`app/src/player/`)、プレイリスト管理UI(`app/src/App.tsx`)。URLを貼り付けての`TrackGroup`追加・削除に加え、複数`TrackGroup`を選択して1つの`TrackGroup`にまとめる操作にも対応しています
 
 `infra/`配下は次の責務で分割しています。
 

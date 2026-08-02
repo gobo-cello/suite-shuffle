@@ -3,7 +3,12 @@ import {
 	buildPlaylist,
 	buildTrackGroup,
 } from "../test-support/playlist-fixtures";
-import { addTrackFromUrl, createPlaylist, removeTrackGroup } from "./playlist";
+import {
+	addTrackFromUrl,
+	createPlaylist,
+	mergeTrackGroups,
+	removeTrackGroup,
+} from "./playlist";
 import { parseTrack } from "./track";
 
 describe("createPlaylist", () => {
@@ -79,6 +84,63 @@ describe("addTrackFromUrl", () => {
 			ok: false,
 			error:
 				"YouTubeまたはYouTube Musicの動画URLとして認識できません: https://vimeo.com/12345678",
+		});
+	});
+});
+
+describe("mergeTrackGroups", () => {
+	it("merges the tracks of the selected track groups in playlist order, at the position of the first selected group", () => {
+		const trackA = parseTrack("https://www.youtube.com/watch?v=aaaaaaaaaaa");
+		const trackB = parseTrack("https://www.youtube.com/watch?v=bbbbbbbbbbb");
+		const trackC = parseTrack("https://www.youtube.com/watch?v=ccccccccccc");
+		const groupA = buildTrackGroup([trackA]);
+		const groupB = buildTrackGroup([trackB]);
+		const groupC = buildTrackGroup([trackC]);
+		const playlist = buildPlaylist([groupA, groupB, groupC]);
+
+		const result = mergeTrackGroups(playlist, [groupA.id, groupC.id]);
+
+		expect(result.ok).toBe(true);
+		expect(result.ok && result.playlist.trackGroups).toEqual([
+			{ id: expect.any(String), name: "", tracks: [trackA, trackC] },
+			groupB,
+		]);
+	});
+
+	it("does not mutate the original playlist", () => {
+		const groupA = buildTrackGroup();
+		const groupB = buildTrackGroup();
+		const playlist = buildPlaylist([groupA, groupB]);
+
+		mergeTrackGroups(playlist, [groupA.id, groupB.id]);
+
+		expect(playlist.trackGroups).toEqual([groupA, groupB]);
+	});
+
+	it("returns an error when fewer than two track groups are selected", () => {
+		const groupA = buildTrackGroup();
+		const playlist = buildPlaylist([groupA]);
+
+		const result = mergeTrackGroups(playlist, [groupA.id]);
+
+		expect(result).toEqual({
+			ok: false,
+			error: "まとめるにはTrackGroupを2つ以上選択してください",
+		});
+	});
+
+	it("returns an error when a selected id doesn't match any track group in the playlist", () => {
+		const groupA = buildTrackGroup();
+		const playlist = buildPlaylist([groupA]);
+
+		const result = mergeTrackGroups(playlist, [
+			groupA.id,
+			buildTrackGroup().id,
+		]);
+
+		expect(result).toEqual({
+			ok: false,
+			error: "存在しないTrackGroupが指定されました",
 		});
 	});
 });

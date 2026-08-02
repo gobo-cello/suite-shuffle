@@ -62,3 +62,52 @@ export function addTrackFromUrl(
 		playlist: addTrackGroup(playlist, createTrackGroup("", [track])),
 	};
 }
+
+export type MergeTrackGroupsResult =
+	| Readonly<{ ok: true; playlist: Playlist }>
+	| Readonly<{ ok: false; error: string }>;
+
+/**
+ * 選択された複数の`TrackGroup`を、Track順序を維持したまま1つの`TrackGroup`へまとめる。
+ * まとめた`TrackGroup`は、選択されたもののうち最も先頭にあった位置に挿入され、
+ * 未選択の`TrackGroup`同士の相対順序は変化しない。
+ */
+export function mergeTrackGroups(
+	playlist: Playlist,
+	trackGroupIds: readonly TrackGroup["id"][],
+): MergeTrackGroupsResult {
+	const targetIds = new Set(trackGroupIds);
+	if (targetIds.size < 2) {
+		return {
+			ok: false,
+			error: "まとめるにはTrackGroupを2つ以上選択してください",
+		};
+	}
+
+	const targets = playlist.trackGroups.filter((trackGroup) =>
+		targetIds.has(trackGroup.id),
+	);
+	if (targets.length !== targetIds.size) {
+		return { ok: false, error: "存在しないTrackGroupが指定されました" };
+	}
+
+	const merged = createTrackGroup(
+		"",
+		targets.flatMap((trackGroup) => trackGroup.tracks),
+	);
+
+	const trackGroups: TrackGroup[] = [];
+	let mergedInserted = false;
+	for (const trackGroup of playlist.trackGroups) {
+		if (!targetIds.has(trackGroup.id)) {
+			trackGroups.push(trackGroup);
+			continue;
+		}
+		if (!mergedInserted) {
+			trackGroups.push(merged);
+			mergedInserted = true;
+		}
+	}
+
+	return { ok: true, playlist: { ...playlist, trackGroups } };
+}

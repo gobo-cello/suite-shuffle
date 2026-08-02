@@ -7,7 +7,15 @@ import { usePlaylist } from "./use-playlist";
 const repository = createLocalStoragePlaylistRepository(window.localStorage);
 
 function App() {
-	const { playlist, error, addFromUrl, remove } = usePlaylist(repository);
+	const {
+		playlist,
+		error,
+		addFromUrl,
+		remove,
+		selectedTrackGroupIds,
+		toggleSelection,
+		mergeSelected,
+	} = usePlaylist(repository);
 	const [url, setUrl] = useState("");
 	const playback = usePlaybackSession();
 	const playerContainerRef = useYouTubePlayer({
@@ -100,19 +108,39 @@ function App() {
 				</p>
 			</section>
 
+			<div className="flex items-center justify-between">
+				<h2 className="text-sm text-muted">プレイリスト</h2>
+				<button
+					type="button"
+					onClick={mergeSelected}
+					disabled={selectedTrackGroupIds.size < 2}
+					className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-surface-hover disabled:opacity-40"
+				>
+					選択した曲をまとめる
+				</button>
+			</div>
+
 			<ul className="flex flex-col gap-1">
 				{playlist.trackGroups.map((trackGroup) => (
 					<li
 						key={trackGroup.id}
 						className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 hover:bg-surface-hover"
 					>
-						<div className="flex min-w-0 flex-col">
-							{trackGroup.tracks.map((track) => (
-								<span key={track.videoId} className="truncate text-sm">
-									{track.sourceUrl}
-								</span>
-							))}
-						</div>
+						<label className="flex min-w-0 flex-1 items-center gap-3">
+							<input
+								type="checkbox"
+								checked={selectedTrackGroupIds.has(trackGroup.id)}
+								onChange={() => toggleSelection(trackGroup.id)}
+								aria-label="まとめる曲を選択"
+							/>
+							<div className="flex min-w-0 flex-col">
+								{trackGroup.tracks.map((track) => (
+									<span key={track.videoId} className="truncate text-sm">
+										{track.sourceUrl}
+									</span>
+								))}
+							</div>
+						</label>
 						<button
 							type="button"
 							onClick={() => remove(trackGroup.id)}
