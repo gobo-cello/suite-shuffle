@@ -1,0 +1,37 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    cooldown:
+      semver-minor-days: 3
+      semver-patch-days: 3
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/infra"
+    schedule:
+      interval: "daily"
+    cooldown:
+      semver-minor-days: 3
+      semver-patch-days: 3
+    groups:
+      dependencies:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "npm"
+    directory: "/app"
+    schedule:
+      interval: "daily"
+    cooldown:
+      semver-minor-days: 3
+      semver-patch-days: 3
+    groups:
+      dependencies:
+        patterns:
+          - "*"
