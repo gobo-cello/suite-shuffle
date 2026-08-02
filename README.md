@@ -94,6 +94,8 @@ suite-shuffle/
 
 このツリーは各ディレクトリの役割を示す骨格であり、網羅的なファイル一覧ではありません。
 
+`app/`のMVPにおけるデータモデル・技術選定・UI設計方針(モードレスデザインの採用など)は[ADR 0001](./docs/adr/0001-mvp-implementation-approach.md)を参照してください。
+
 `infra/`配下は次の責務で分割しています。
 
 - `infra/bin/`: CDK applicationのentry point
