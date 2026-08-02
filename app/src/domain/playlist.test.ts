@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+	addTrackFromUrl,
 	addTrackGroup,
 	createPlaylist,
 	createTrackGroup,
@@ -65,5 +66,45 @@ describe("removeTrackGroup", () => {
 		const updated = removeTrackGroup(playlist, createTrackGroup("", []).id);
 
 		expect(updated.trackGroups).toEqual([trackGroup]);
+	});
+});
+
+describe("addTrackFromUrl", () => {
+	it("adds a track group containing the parsed track", () => {
+		const playlist = createPlaylist("");
+
+		const result = addTrackFromUrl(
+			playlist,
+			"https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+		);
+
+		expect(result.ok).toBe(true);
+		expect(result.ok && result.playlist.trackGroups).toEqual([
+			{
+				id: expect.any(String),
+				name: "",
+				tracks: [parseTrack("https://www.youtube.com/watch?v=dQw4w9WgXcQ")],
+			},
+		]);
+	});
+
+	it("does not mutate the original playlist", () => {
+		const playlist = createPlaylist("");
+
+		addTrackFromUrl(playlist, "https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+
+		expect(playlist.trackGroups).toEqual([]);
+	});
+
+	it("returns an error for an unsupported URL without changing the playlist", () => {
+		const playlist = createPlaylist("");
+
+		const result = addTrackFromUrl(playlist, "https://vimeo.com/12345678");
+
+		expect(result).toEqual({
+			ok: false,
+			error:
+				"YouTubeまたはYouTube Musicの動画URLとして認識できません: https://vimeo.com/12345678",
+		});
 	});
 });
