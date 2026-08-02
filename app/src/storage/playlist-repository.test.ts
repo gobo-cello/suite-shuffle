@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import {
-	addTrackGroup,
-	createPlaylist,
-	createTrackGroup,
-} from "../domain/playlist";
+import { createPlaylist } from "../domain/playlist";
 import { parseTrack } from "../domain/track";
+import {
+	buildPlaylist,
+	buildTrackGroup,
+} from "../test-support/playlist-fixtures";
 import { createLocalStoragePlaylistRepository } from "./playlist-repository";
 
 function createInMemoryStorage() {
@@ -32,10 +32,7 @@ describe("createLocalStoragePlaylistRepository", () => {
 			createInMemoryStorage(),
 		);
 		const track = parseTrack("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
-		const playlist = addTrackGroup(
-			createPlaylist(""),
-			createTrackGroup("", [track]),
-		);
+		const playlist = buildPlaylist([buildTrackGroup([track])]);
 
 		repository.save(playlist);
 

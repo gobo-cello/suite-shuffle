@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { buildTrackGroup } from "../test-support/playlist-fixtures";
 import { createShuffledPlaybackQueue } from "./playback-queue";
-import { createTrackGroup } from "./playlist";
 import { parseTrack } from "./track";
 
 function sequence(...values: number[]): () => number {
@@ -16,7 +16,7 @@ describe("createShuffledPlaybackQueue", () => {
 	it("keeps the track order within each track group unchanged", () => {
 		const first = parseTrack("https://www.youtube.com/watch?v=aaaaaaaaaaa");
 		const second = parseTrack("https://www.youtube.com/watch?v=bbbbbbbbbbb");
-		const trackGroup = createTrackGroup("交響曲第5番", [first, second]);
+		const trackGroup = buildTrackGroup([first, second]);
 
 		const queue = createShuffledPlaybackQueue([trackGroup], () => 0);
 
@@ -24,13 +24,13 @@ describe("createShuffledPlaybackQueue", () => {
 	});
 
 	it("orders track groups according to the given random source", () => {
-		const trackGroupA = createTrackGroup("A", [
+		const trackGroupA = buildTrackGroup([
 			parseTrack("https://www.youtube.com/watch?v=aaaaaaaaaaa"),
 		]);
-		const trackGroupB = createTrackGroup("B", [
+		const trackGroupB = buildTrackGroup([
 			parseTrack("https://www.youtube.com/watch?v=bbbbbbbbbbb"),
 		]);
-		const trackGroupC = createTrackGroup("C", [
+		const trackGroupC = buildTrackGroup([
 			parseTrack("https://www.youtube.com/watch?v=ccccccccccc"),
 		]);
 
@@ -54,10 +54,10 @@ describe("createShuffledPlaybackQueue", () => {
 
 	it("does not mutate the given track groups", () => {
 		const trackGroups = [
-			createTrackGroup("A", [
+			buildTrackGroup([
 				parseTrack("https://www.youtube.com/watch?v=aaaaaaaaaaa"),
 			]),
-			createTrackGroup("B", [
+			buildTrackGroup([
 				parseTrack("https://www.youtube.com/watch?v=bbbbbbbbbbb"),
 			]),
 		];

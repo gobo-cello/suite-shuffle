@@ -20,23 +20,11 @@ export function createPlaylist(name: string): Playlist {
 	return { id: crypto.randomUUID() as PlaylistId, name, trackGroups: [] };
 }
 
-/**
- * @public 現在の唯一の生産コード呼び出し元は同一ファイル内の`addTrackFromUrl`だが、
- * 複数Trackを1つのTrackGroupへまとめる操作(ADR 0001のロードマップ)が実装され次第、
- * UIから直接呼び出される想定の公開コンストラクタである。
- */
-export function createTrackGroup(
-	name: string,
-	tracks: readonly Track[],
-): TrackGroup {
+function createTrackGroup(name: string, tracks: readonly Track[]): TrackGroup {
 	return { id: crypto.randomUUID() as TrackGroupId, name, tracks };
 }
 
-/** @public {@link createTrackGroup}と同様、将来のUIから直接利用される想定の公開API。 */
-export function addTrackGroup(
-	playlist: Playlist,
-	trackGroup: TrackGroup,
-): Playlist {
+function addTrackGroup(playlist: Playlist, trackGroup: TrackGroup): Playlist {
 	return { ...playlist, trackGroups: [...playlist.trackGroups, trackGroup] };
 }
 
