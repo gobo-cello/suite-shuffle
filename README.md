@@ -166,6 +166,13 @@ cd app
 npm run dev
 ```
 
+テストを実行します。
+
+```sh
+cd app
+npm test
+```
+
 静的サイトをビルドします。
 
 ```sh
@@ -184,7 +191,7 @@ npm run check
 git hooksには[lefthook](https://github.com/evilmartians/lefthook)を使用します。`npm ci`実行時に`prepare`スクリプトが自動的に`lefthook install`を実行します。
 
 - pre-commit: 変更されたファイルへBiomeを適用します。
-- pre-push: `infra/`でbuild、テスト、`cdk synth`、`app/`でbuildを実行します。
+- pre-push: `infra/`でbuild、テスト、`cdk synth`、`app/`でbuild、テストを実行します。
 - commit-msg: Conventional Commitsの形式を検証します。
 
 ## AWS CLIプロファイル
