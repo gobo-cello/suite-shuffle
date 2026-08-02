@@ -5,7 +5,10 @@ const config: KnipConfig = {
 	workspaces: {
 		".": {},
 		app: {
-			project: ["**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts,css}!"],
+			project: [
+				"**/*.{js,mjs,cjs,jsx,ts,tsx,mts,cts,css}!",
+				"!src/test-support/**!",
+			],
 		},
 		infra: {
 			entry: ["bin/infra.ts!"],
