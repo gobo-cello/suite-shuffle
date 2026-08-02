@@ -1,5 +1,4 @@
 import { type FormEvent, useState } from "react";
-import "./App.css";
 import { useYouTubePlayer } from "./player/use-youtube-player";
 import { createLocalStoragePlaylistRepository } from "./storage/playlist-repository";
 import { usePlaybackSession } from "./use-playback-session";
@@ -24,27 +23,56 @@ function App() {
 	}
 
 	return (
-		<main>
-			<h1>Suite Shuffle</h1>
-			<form onSubmit={handleSubmit}>
-				<label htmlFor="track-url">YouTubeまたはYouTube MusicのURL</label>
-				<input
-					id="track-url"
-					type="url"
-					value={url}
-					onChange={(event) => setUrl(event.target.value)}
-					placeholder="https://www.youtube.com/watch?v=..."
-				/>
-				<button type="submit">追加</button>
+		<main className="mx-auto flex min-h-screen max-w-3xl flex-col gap-6 px-4 py-8">
+			<h1 className="flex items-center gap-2 text-xl font-bold">
+				<span className="flex h-7 w-10 items-center justify-center rounded-lg bg-accent">
+					<span className="ml-0.5 h-0 w-0 border-y-[6px] border-l-[10px] border-y-transparent border-l-white" />
+				</span>
+				Suite Shuffle
+			</h1>
+
+			<form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
+				<div className="flex min-w-64 flex-1 flex-col gap-1">
+					<label htmlFor="track-url" className="text-sm text-muted">
+						YouTubeまたはYouTube MusicのURL
+					</label>
+					<input
+						id="track-url"
+						type="url"
+						value={url}
+						onChange={(event) => setUrl(event.target.value)}
+						placeholder="https://www.youtube.com/watch?v=..."
+						className="rounded-full border border-border bg-background px-4 py-2 text-foreground outline-none focus:border-foreground"
+					/>
+				</div>
+				<button
+					type="submit"
+					className="rounded-full bg-accent px-5 py-2 font-medium text-white hover:bg-accent-hover"
+				>
+					追加
+				</button>
 			</form>
-			{error !== null && <p role="alert">{error}</p>}
-			<section className="player">
-				<div className="player-frame" ref={playerContainerRef} />
-				<div className="player-controls">
+
+			{error !== null && (
+				<p
+					role="alert"
+					className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent"
+				>
+					{error}
+				</p>
+			)}
+
+			<section className="flex flex-col gap-3">
+				<div
+					className="aspect-video w-full overflow-hidden rounded-xl bg-black"
+					ref={playerContainerRef}
+				/>
+				<div className="flex gap-2">
 					<button
 						type="button"
 						onClick={() => playback.shufflePlay(playlist.trackGroups)}
 						disabled={playlist.trackGroups.length === 0}
+						className="rounded-full bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-40"
 					>
 						シャッフル再生
 					</button>
@@ -52,6 +80,7 @@ function App() {
 						type="button"
 						onClick={playback.previous}
 						disabled={!playback.hasPrevious}
+						className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-surface-hover disabled:opacity-40"
 					>
 						前へ
 					</button>
@@ -59,23 +88,36 @@ function App() {
 						type="button"
 						onClick={playback.next}
 						disabled={!playback.hasNext}
+						className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-surface-hover disabled:opacity-40"
 					>
 						次へ
 					</button>
 				</div>
-				<p>
+				<p className="text-sm text-muted">
 					{playback.currentTrack === null
 						? "再生中の曲はありません"
 						: `再生中: ${playback.currentTrack.sourceUrl}`}
 				</p>
 			</section>
-			<ul>
+
+			<ul className="flex flex-col gap-1">
 				{playlist.trackGroups.map((trackGroup) => (
-					<li key={trackGroup.id}>
-						{trackGroup.tracks.map((track) => (
-							<span key={track.videoId}>{track.sourceUrl}</span>
-						))}
-						<button type="button" onClick={() => remove(trackGroup.id)}>
+					<li
+						key={trackGroup.id}
+						className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 hover:bg-surface-hover"
+					>
+						<div className="flex min-w-0 flex-col">
+							{trackGroup.tracks.map((track) => (
+								<span key={track.videoId} className="truncate text-sm">
+									{track.sourceUrl}
+								</span>
+							))}
+						</div>
+						<button
+							type="button"
+							onClick={() => remove(trackGroup.id)}
+							className="shrink-0 text-sm text-muted hover:text-accent"
+						>
 							削除
 						</button>
 					</li>
