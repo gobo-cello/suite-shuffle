@@ -35,6 +35,31 @@ button {
 	cursor: pointer;
 }
 
+.player {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.player-frame {
+	width: 100%;
+	max-width: 640px;
+	aspect-ratio: 16 / 9;
+	background: #000;
+	border-radius: 6px;
+	overflow: hidden;
+}
+
+.player-frame iframe {
+	width: 100%;
+	height: 100%;
+}
+
+.player-controls {
+	display: flex;
+	gap: 8px;
+}
+
 ul {
 	list-style: none;
 	padding: 0;
