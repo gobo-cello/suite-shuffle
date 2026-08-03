@@ -6,6 +6,10 @@ vi.mock("./player/use-youtube-player", () => ({
 	useYouTubePlayer: () => ({ current: null }),
 }));
 
+vi.mock("./youtube/use-video-title", () => ({
+	useVideoTitle: () => null,
+}));
+
 describe("App", () => {
 	beforeEach(() => {
 		window.localStorage.clear();
@@ -45,22 +49,21 @@ describe("App", () => {
 		).toBeEnabled();
 	});
 
-	it("TrackGroupを1つしか選択していない場合、まとめるボタンは無効", () => {
-		render(<App />);
+	it("追加した曲のサムネイルをvideoIdから構築して表示する", () => {
+		const { container } = render(<App />);
 
 		fireEvent.change(screen.getByLabelText("YouTubeまたはYouTube MusicのURL"), {
-			target: { value: "https://www.youtube.com/watch?v=aaaaaaaaaaa" },
+			target: { value: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
 		});
 		fireEvent.click(screen.getByRole("button", { name: "追加" }));
 
-		fireEvent.click(screen.getByLabelText("まとめる曲を選択"));
-
-		expect(
-			screen.getByRole("button", { name: "選択した曲をまとめる" }),
-		).toBeDisabled();
+		expect(container.querySelector("img")).toHaveAttribute(
+			"src",
+			"https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg",
+		);
 	});
 
-	it("複数のTrackGroupを選択してまとめると、1つのTrackGroupにまとまる", () => {
+	it("1曲だけのTrackGroupには、曲を取り出すためのドラッグハンドルを表示しない", () => {
 		render(<App />);
 
 		fireEvent.change(screen.getByLabelText("YouTubeまたはYouTube MusicのURL"), {
@@ -68,27 +71,13 @@ describe("App", () => {
 		});
 		fireEvent.click(screen.getByRole("button", { name: "追加" }));
 
-		fireEvent.change(screen.getByLabelText("YouTubeまたはYouTube MusicのURL"), {
-			target: { value: "https://www.youtube.com/watch?v=bbbbbbbbbbb" },
-		});
-		fireEvent.click(screen.getByRole("button", { name: "追加" }));
-
-		expect(screen.getAllByRole("listitem")).toHaveLength(2);
-
-		for (const checkbox of screen.getAllByLabelText("まとめる曲を選択")) {
-			fireEvent.click(checkbox);
-		}
-		fireEvent.click(
-			screen.getByRole("button", { name: "選択した曲をまとめる" }),
-		);
-
-		const items = screen.getAllByRole("listitem");
-		expect(items).toHaveLength(1);
-		expect(items[0]).toHaveTextContent(
-			"https://www.youtube.com/watch?v=aaaaaaaaaaa",
-		);
-		expect(items[0]).toHaveTextContent(
-			"https://www.youtube.com/watch?v=bbbbbbbbbbb",
-		);
+		expect(
+			screen.queryByLabelText("この曲だけ取り出して独立させる"),
+		).not.toBeInTheDocument();
+		expect(
+			screen.getByRole("button", {
+				name: "TrackGroupを移動してドラッグで結合",
+			}),
+		).toBeInTheDocument();
 	});
 });
