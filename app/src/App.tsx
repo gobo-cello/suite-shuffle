@@ -1,27 +1,25 @@
 import { type FormEvent, useState } from "react";
 import { useYouTubePlayer } from "./player/use-youtube-player";
 import { createLocalStoragePlaylistRepository } from "./storage/playlist-repository";
+import { TrackGroupList } from "./track-group-list/TrackGroupList";
 import { usePlaybackSession } from "./use-playback-session";
 import { usePlaylist } from "./use-playlist";
+import { useVideoTitle } from "./youtube/use-video-title";
 
 const repository = createLocalStoragePlaylistRepository(window.localStorage);
 
 function App() {
-	const {
-		playlist,
-		error,
-		addFromUrl,
-		remove,
-		selectedTrackGroupIds,
-		toggleSelection,
-		mergeSelected,
-	} = usePlaylist(repository);
+	const { playlist, error, addFromUrl, remove, mergeGroups, splitTrack } =
+		usePlaylist(repository);
 	const [url, setUrl] = useState("");
 	const playback = usePlaybackSession();
 	const playerContainerRef = useYouTubePlayer({
 		videoId: playback.currentTrack?.videoId ?? null,
 		onEnded: playback.next,
 	});
+	const currentTrackTitle = useVideoTitle(
+		playback.currentTrack?.videoId ?? null,
+	);
 
 	function handleSubmit(event: FormEvent<HTMLFormElement>) {
 		event.preventDefault();
@@ -104,53 +102,18 @@ function App() {
 				<p className="text-sm text-muted">
 					{playback.currentTrack === null
 						? "再生中の曲はありません"
-						: `再生中: ${playback.currentTrack.sourceUrl}`}
+						: `再生中: ${currentTrackTitle ?? playback.currentTrack.sourceUrl}`}
 				</p>
 			</section>
 
-			<div className="flex items-center justify-between">
-				<h2 className="text-sm text-muted">プレイリスト</h2>
-				<button
-					type="button"
-					onClick={mergeSelected}
-					disabled={selectedTrackGroupIds.size < 2}
-					className="rounded-full border border-border px-4 py-2 text-sm font-medium hover:bg-surface-hover disabled:opacity-40"
-				>
-					選択した曲をまとめる
-				</button>
-			</div>
+			<h2 className="text-sm text-muted">プレイリスト</h2>
 
-			<ul className="flex flex-col gap-1">
-				{playlist.trackGroups.map((trackGroup) => (
-					<li
-						key={trackGroup.id}
-						className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 hover:bg-surface-hover"
-					>
-						<label className="flex min-w-0 flex-1 items-center gap-3">
-							<input
-								type="checkbox"
-								checked={selectedTrackGroupIds.has(trackGroup.id)}
-								onChange={() => toggleSelection(trackGroup.id)}
-								aria-label="まとめる曲を選択"
-							/>
-							<div className="flex min-w-0 flex-col">
-								{trackGroup.tracks.map((track) => (
-									<span key={track.videoId} className="truncate text-sm">
-										{track.sourceUrl}
-									</span>
-								))}
-							</div>
-						</label>
-						<button
-							type="button"
-							onClick={() => remove(trackGroup.id)}
-							className="shrink-0 text-sm text-muted hover:text-accent"
-						>
-							削除
-						</button>
-					</li>
-				))}
-			</ul>
+			<TrackGroupList
+				playlist={playlist}
+				onRemove={remove}
+				onMergeGroups={mergeGroups}
+				onSplitTrack={splitTrack}
+			/>
 		</main>
 	);
 }

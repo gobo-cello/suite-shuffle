@@ -5,8 +5,10 @@ import {
 	mergeTrackGroups,
 	type Playlist,
 	removeTrackGroup,
+	splitTrackFromGroup,
 	type TrackGroup,
 } from "./domain/playlist";
+import type { Track } from "./domain/track";
 import type { PlaylistRepository } from "./storage/playlist-repository";
 
 export function usePlaylist(repository: PlaylistRepository) {
@@ -14,9 +16,6 @@ export function usePlaylist(repository: PlaylistRepository) {
 		() => repository.load() ?? createPlaylist(""),
 	);
 	const [error, setError] = useState<string | null>(null);
-	const [selectedTrackGroupIds, setSelectedTrackGroupIds] = useState<
-		ReadonlySet<TrackGroup["id"]>
-	>(new Set());
 
 	function persist(next: Playlist) {
 		setPlaylist(next);
@@ -36,25 +35,32 @@ export function usePlaylist(repository: PlaylistRepository) {
 
 	function remove(trackGroupId: TrackGroup["id"]) {
 		persist(removeTrackGroup(playlist, trackGroupId));
-		setSelectedTrackGroupIds((current) => withoutId(current, trackGroupId));
 	}
 
-	function toggleSelection(trackGroupId: TrackGroup["id"]) {
-		setSelectedTrackGroupIds((current) =>
-			current.has(trackGroupId)
-				? withoutId(current, trackGroupId)
-				: new Set(current).add(trackGroupId),
-		);
-	}
-
-	function mergeSelected(): boolean {
-		const result = mergeTrackGroups(playlist, [...selectedTrackGroupIds]);
+	function mergeGroups(
+		sourceId: TrackGroup["id"],
+		targetId: TrackGroup["id"],
+	): boolean {
+		const result = mergeTrackGroups(playlist, [targetId, sourceId]);
 		if (!result.ok) {
 			setError(result.error);
 			return false;
 		}
 		persist(result.playlist);
-		setSelectedTrackGroupIds(new Set());
+		setError(null);
+		return true;
+	}
+
+	function splitTrack(
+		trackGroupId: TrackGroup["id"],
+		videoId: Track["videoId"],
+	): boolean {
+		const result = splitTrackFromGroup(playlist, trackGroupId, videoId);
+		if (!result.ok) {
+			setError(result.error);
+			return false;
+		}
+		persist(result.playlist);
 		setError(null);
 		return true;
 	}
@@ -64,14 +70,7 @@ export function usePlaylist(repository: PlaylistRepository) {
 		error,
 		addFromUrl,
 		remove,
-		selectedTrackGroupIds,
-		toggleSelection,
-		mergeSelected,
+		mergeGroups,
+		splitTrack,
 	};
-}
-
-function withoutId<T>(ids: ReadonlySet<T>, id: T): Set<T> {
-	const next = new Set(ids);
-	next.delete(id);
-	return next;
 }

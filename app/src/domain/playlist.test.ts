@@ -8,6 +8,7 @@ import {
 	createPlaylist,
 	mergeTrackGroups,
 	removeTrackGroup,
+	splitTrackFromGroup,
 } from "./playlist";
 import { parseTrack } from "./track";
 
@@ -141,6 +142,79 @@ describe("mergeTrackGroups", () => {
 		expect(result).toEqual({
 			ok: false,
 			error: "存在しないTrackGroupが指定されました",
+		});
+	});
+});
+
+describe("splitTrackFromGroup", () => {
+	it("splits the track out into a new TrackGroup inserted right after the source", () => {
+		const trackA = parseTrack("https://www.youtube.com/watch?v=aaaaaaaaaaa");
+		const trackB = parseTrack("https://www.youtube.com/watch?v=bbbbbbbbbbb");
+		const groupAB = buildTrackGroup([trackA, trackB]);
+		const groupC = buildTrackGroup();
+		const playlist = buildPlaylist([groupAB, groupC]);
+
+		const result = splitTrackFromGroup(playlist, groupAB.id, trackB.videoId);
+
+		expect(result.ok).toBe(true);
+		expect(result.ok && result.playlist.trackGroups).toEqual([
+			{ id: groupAB.id, name: "", tracks: [trackA] },
+			{ id: expect.any(String), name: "", tracks: [trackB] },
+			groupC,
+		]);
+	});
+
+	it("does not mutate the original playlist", () => {
+		const trackA = parseTrack("https://www.youtube.com/watch?v=aaaaaaaaaaa");
+		const trackB = parseTrack("https://www.youtube.com/watch?v=bbbbbbbbbbb");
+		const groupAB = buildTrackGroup([trackA, trackB]);
+		const playlist = buildPlaylist([groupAB]);
+
+		splitTrackFromGroup(playlist, groupAB.id, trackB.videoId);
+
+		expect(playlist.trackGroups).toEqual([groupAB]);
+	});
+
+	it("returns an error when the track group doesn't exist", () => {
+		const playlist = buildPlaylist([buildTrackGroup()]);
+
+		const result = splitTrackFromGroup(
+			playlist,
+			buildTrackGroup().id,
+			parseTrack("https://www.youtube.com/watch?v=aaaaaaaaaaa").videoId,
+		);
+
+		expect(result).toEqual({
+			ok: false,
+			error: "存在しないTrackGroupが指定されました",
+		});
+	});
+
+	it("returns an error when the track group only has one track", () => {
+		const track = parseTrack("https://www.youtube.com/watch?v=aaaaaaaaaaa");
+		const group = buildTrackGroup([track]);
+		const playlist = buildPlaylist([group]);
+
+		const result = splitTrackFromGroup(playlist, group.id, track.videoId);
+
+		expect(result).toEqual({
+			ok: false,
+			error: "分割するにはTrackGroupに2曲以上含まれている必要があります",
+		});
+	});
+
+	it("returns an error when the track doesn't exist in the group", () => {
+		const trackA = parseTrack("https://www.youtube.com/watch?v=aaaaaaaaaaa");
+		const trackB = parseTrack("https://www.youtube.com/watch?v=bbbbbbbbbbb");
+		const group = buildTrackGroup([trackA, trackB]);
+		const playlist = buildPlaylist([group]);
+		const trackC = parseTrack("https://www.youtube.com/watch?v=ccccccccccc");
+
+		const result = splitTrackFromGroup(playlist, group.id, trackC.videoId);
+
+		expect(result).toEqual({
+			ok: false,
+			error: "存在しないTrackが指定されました",
 		});
 	});
 });
