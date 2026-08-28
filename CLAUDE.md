@@ -18,8 +18,33 @@ Suite Shuffleのアプリケーション・コンテンツ・ワークロード�
 - 連絡先メールアドレス
 - ドメインレジストラの認証情報
 - シークレットおよびAPIキー
+- apex hosted zone(`aws-platform`リポジトリが所有)。Suite Shuffle 用サブドメインの hosted zone はこのリポジトリで作成し、apex からの NS 委譲で連携する(詳細は`aws-platform`リポジトリの`docs/adr/0005-dns-delegation.md`)
 
 組織レベルの共通基盤は、別のInfrastructure as Codeリポジトリ(`aws-platform`)で管理する。このリポジトリは、そのリポジトリが提供するアカウント構成やログ基盤を前提として、Suite Shuffle固有のワークロードだけを扱う。
+
+## ディレクトリ構成と主要コマンド
+
+各ディレクトリは独立した`package.json`を持つ。ルートには Biome / Knip / lefthook の設定だけがある。
+
+- `app/`: Suite Shuffle 本体(Vite + React)。`npm --prefix app run dev` / `run build` / `run test:unit` / `run test:dom`
+- `infra/`: ワークロード用の CDK。`npm --prefix infra run build` / `test` / `run cdk synth` / `run cdk diff <stack...>`。エントリポイントは`infra/bin/infra.ts`で、ターゲット指定に関わらず全 stack を構築する
+- `docs/`: ドキュメント。ADR は`docs/adr/`
+- `scripts/`: 補助スクリプト(`actionlint.sh`など)
+- ルート: `npm run check`(Biome、safe fix のみ) / `npm run knip` / `npm run knip:production`
+
+## デプロイ
+
+- デプロイは GitHub Actions(`.github/workflows/deploy.yml`)経由のみで行う。ローカルや手動での`cdk deploy`は行わない。
+- `main`への push で`app/**`・`infra/**`などが変更されると起動し、`sandbox` → `production`の順に GitHub Environments へ OIDC でロールを引き受けてデプロイする。
+
+## 品質確認と完了前チェック
+
+- コードを変更したら、対象スタックの formatter / linter を実行すること。
+  - JavaScript / TypeScript / JSON: ルートの Biome。`npm run check`(safe fix のみ)。`--unsafe`は自動では使わず、必要なときだけ手動で`npm run check:unsafe`を実行し、diff を確認すること。
+  - GitHub Actions ワークフロー: `./scripts/actionlint.sh -color`
+- 変更が`lefthook.yml`の`pre-push`対象(`infra`/`app`の build・test(`test:unit`・`test:dom`)、`cdk synth`、`knip`、`knip:production`、`actionlint`)に該当する場合は、作業完了前に該当チェックを実行し、通してから完了とすること。失敗した場合は原因を修正し、同じチェックを再実行すること。
+- Knip は green にすることを目的にせず、「Knip 設定の方針」節と根本原因修正の手順に従うこと。通常モードと`--production --strict`の両方を確認すること。
+- PR の CI(`.github/workflows/pr-ci-gate.yml`)は上記と同じチェックを実行する。ローカルで通してから push すること。
 
 ## コードのドメイン非依存の原則
 
@@ -39,7 +64,7 @@ Suite Shuffleのアプリケーション・コンテンツ・ワークロード�
 ## Git とコミットの共有運用
 
 - 作業開始時は最新の`main`を取り込み、作業ブランチは最新の`main`から作成すること。
-- ブランチ名は作業内容が分かるものにすること。
+- ブランチ名は作業内容が分かるものにすること。チーム運用上の識別子がある場合は必要に応じて含めること。
 - 意図しないブランチへのコミットを避け、同じ作業内容は同じ作業ブランチで継続すること。
 - コミットは小さく、意味のある完成単位で行うこと。
 - コミットメッセージはConventional Commitsに従い、`<type>(<scope>): <日本語の要約>`を基本とすること。
