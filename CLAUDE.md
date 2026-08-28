@@ -164,131 +164,92 @@ Suite Shuffleのアプリケーション・コンテンツ・ワークロード�
 - **`satisfies`で型推論を保ったまま制約を効かせる**: 定数オブジェクトなどはリテラル型を広げる`as`よりも`satisfies`を優先し、型チェックとリテラル型推論を両立させること。
 - **エラーも型で表現する**: 想定内の失敗はカスタムエラークラスで表現し、`cause`を使って元エラーとの連鎖を保つこと。想定外の分岐は握りつぶさず型または例外として顕在化させること。
 
-## Knip 設定の方針
+## Knip の方針
 
 ### 目的
 
-Knip の設定は、チェックを通すために issue を隠すものではなく、実際の実行経路とプロジェクトの境界を正しくモデル化するために使う。検出結果を信頼できる状態にしてから、不要なファイル、export、依存関係を削除する。
+Knip の設定と Knip 指摘への対応は、issue 数を減らして CI を通す作業ではなく、実際の実行経路・module graph・モジュールの責務・テスト境界を正しくモデル化するための調査結果として扱う。検出結果を信頼できる状態にしてから、不要なファイル・export・依存関係を削除する。
 
-### 基本の設定方法
+- Knip がグリーンになったことだけを完了条件にしない。関連するテスト・typecheck・lint と、通常モード・`--production --strict` の両方の結果を確認する。
+- `ignore*`、不要な `entry` 追加、`project` 範囲の拡大、テストのためだけの `export` 追加、テスト削除、アサーションの弱体化で issue を隠さない。
 
-Knip の設定は、リポジトリ直下の `knip.ts` / `knip.json` / `knip.jsonc` に記述する。TypeScript の設定ファイルでは `KnipConfig` を型として利用できる。monorepo では `workspaces` のキーに package のディレクトリを指定し、`entry` / `project` などの設定は対象 workspace の中に置く。root workspace を設定する場合のキーは `.` とする。
+### このリポジトリの Knip 構成
 
-最初から独自の glob を増やさず、Knip のデフォルトと有効な plugin が追加する entry を確認する。追加設定が必要な場合は、次のように実際の実行経路と source の境界を表現する。
+対象は Knip v6。設定はリポジトリ直下の `knip.ts`（`KnipConfig` 型）に置き、`knip.ts` 内のコメントを各 `entry` / `ignore` の一次的な根拠とする。この節はその背景を補足する。
 
-```ts
-const config: KnipConfig = {
-	workspaces: {
-		frontend: {
-			entry: ['src/main.tsx', 'vite.config.ts'],
-			project: ['src/**/*.{ts,tsx}', 'vite.config.ts'],
-		},
-	},
-}
-```
-
-- `entry` は、アプリケーションの起動ファイル、CLI、設定ファイルなど、import graph の外側から実行されるファイルを指定する。未使用 export の検出を避ける目的で、通常の module を entry に追加してはならない
-- `project` は、その workspace に属する source の範囲を指定する。build output、generated artifact、fixture などを含めない場合は、先頭に `!` を付けた negated pattern で境界を定義する
-- `entry` と `project` の pattern は workspace root からの相対パスで書く。未使用ファイルは、おおむね `project` に含まれるが `entry` から到達できないファイルとして検出される
-- `entry` / `project` を上書きする前に、デフォルト設定や plugin が同じファイルを entry として追加していないかを `--debug` で確認する
-
-通常モードと production mode では、設定の意味が異なる。
-
-- 通常モード（`knip`）は、production code に加えて test、Storybook、設定ファイルなどの開発経路も解析する
-- production mode（`knip --production`）は、本番用のファイルに対象を絞る。test などを除外するために `ignore` や negated `project` pattern を使わず、production mode を使う
-- production mode の対象をさらに調整する場合は、production 専用であることを表すために pattern の末尾へ `!` を付ける。たとえば `src/**/*.ts!` は production mode のときだけ有効になる
-- pattern の先頭の `!` はファイルを除外するための negation であり、末尾の `!` とは意味が異なる。production mode だけで除外する場合は `!src/test-helpers/**!` のように両方へ付ける
-
-たとえば、通常モードでは test helper も解析し、production mode では source の対象から外す場合は次のように書く。
-
-```ts
-project: ['src/**/*.ts!', '!src/test-helpers/**!']
-```
-
-末尾に `!` が付いた項目は production mode でのみ評価される。通常モードと production mode で対象範囲を変える必要がない場合は、末尾に `!` を付けずに source の境界を記述する。
-
-### 修正の優先順位
-
-Knip の結果を修正するときは、次の順序で進める。
-
-- configuration hint を確認し、設定の不足や冗長なパターンを先に解消する
-- `files` を確認し、未使用ファイルの原因を解消する
-- `unresolved` を確認し、import、path alias、動的 import、生成物の扱いを正す
-- `exports` / `types` を確認し、不要な export と型を削除する
-- `dependencies` / `unlisted` / `binaries` を確認し、直接利用する依存関係を package manifest に正しく宣言する
-
-未使用ファイルは、そのファイル内の export や依存関係の検出にも影響する。下流の issue だけを ignore してはならない。
-
-### workspace の境界
-
-- Knip の workspace は、実際に独立して解析する package の単位に合わせる
-- monorepo では、root の `entry` / `project` を使わず、対象 workspace の設定に置く
-- 意図的に解析対象外とする workspace だけを `ignoreWorkspaces` に追加する
-- `ignoreWorkspaces` で issue を隠す前に、その package を解析対象から外してよい理由を確認する
-- workspace のパス、package 名、`package.json` の存在を確認する
-- workspace を選択して実行した場合でも、Knip が ancestor / dependency / dependent workspace を考慮することを前提にする
+- **npm workspaces ではない。** root の `package.json` に `workspaces` フィールドはなく、各パッケージディレクトリが独自の `package-lock.json` を持ち個別に `npm ci` される。`knip.ts` の `workspaces`（root は `.`）は、この独立したパッケージ群を Knip の解析単位として明示的に与えるためにある。
+- **CI ゲート。** `.github/workflows/pr-ci-gate.yml` の `knip` ジョブが、対象 workspace × `{通常, production}` で `npx knip [--workspace <w>]` と `--production --strict` を実行し、`--reporter github-actions` で PR を必須ブロックする。両モードが gate なので、ローカルでも `npm run knip` と `npm run knip:production` の両方を確認する。
+- **CDK と `tsx`。** CDK を持つ workspace では `tsx` が `cdk.json` の `"app"` から起動され `package.json` の scripts 経由ではないため、Knip の plugin 自動検出が実行経路を認識できない。これを補うために `entry: ["bin/*.ts!"]` と `ignoreDependencies: ["tsx"]` を明示している（末尾 `!` は production mode でも有効にする指定）。
+- **`workspaces`。** `.` / `app` / `infra` を解析単位として宣言し、`treatConfigHintsAsErrors: true` を設定する。
+- **`app`（Vite / React）。** `project` は全ソースを対象にしつつ `src/test-support/**` を production mode でのみ除外する（`!src/test-support/**!`）。共有 fixture / builder / factory / mock / fake を置くテスト専用ディレクトリで、通常モードでは未使用検査の対象、production mode では出荷対象外として扱う。入口は Vite plugin が解決するため `entry` の追加はない。
+- **`infra`（CDK）。** 上の「CDK と `tsx`」のとおり `entry: ["bin/infra.ts!"]` と `ignoreDependencies: ["tsx"]` を置く。
 
 ### entry と project
 
-`entry` と `project` は、ignore より先に設計する。まず Knip のデフォルトと有効な plugin の entry を確認し、追加設定は不足がある場合だけにする。
+`entry` と `project` は `ignore` より先に設計する。まず Knip のデフォルトと有効な plugin が追加する `entry` を `--debug` で確認し、追加設定は不足がある場合だけにする。
 
-#### entry
+- `entry`: import graph の外側から実行される入口（アプリ起動ファイル、CLI、設定ファイル、生成スクリプト、HTML、動的 import、`buildEnd` などの hook から到達するファイル）。未使用 `export` の警告を消す目的で通常の module を `entry` に足さない。plugin や package script が同じ入口を追加していないか確認する（二重指定は redundant entry の configuration hint になる）。
+- `project`: その workspace に属する解析対象ソースの範囲。build output・generated artifact・fixture は先頭 `!` の negated pattern で除外する。plugin が追加する test entry の除外や issue 抑制に `project` の negation を使わない。glob が意図したファイルに一致すること、redundant / no-match pattern を残さないことを確認する。
+- production mode でだけ範囲を変えるときは末尾 `!`（例: `bin/**/*.ts!` は通常・production 両方の対象、`!src/test-support/**!` は production mode でのみ除外）。先頭 `!`（negation）と末尾 `!`（production 限定）を混同しない。
+- `entry` ファイルの未使用 `export` はデフォルトで報告されない。private package で `entry` 内の `export` も検査したい場合だけ `includeEntryExports` を検討する。
+- pattern は workspace root からの相対パスで書く。
 
-`entry` には、実行時またはツール実行時に外部から到達するファイルを指定する。
+### 通常モードと production mode
 
-- アプリケーションの起動ファイル、CLI、設定ファイル、生成スクリプトなどを必要に応じて追加する
-- HTML、設定ファイル、コード生成、動的 import など、Knip が自動的に追跡できない入口を明示する
-- import される通常のモジュールを、未使用 export の警告を避ける目的で entry に追加しない
-- entry を増やす前に、既存 plugin や package script が同じ入口を追加していないか確認する
-- entry ファイルでは、デフォルトで未使用 export が報告されないことを理解する。private package で entry 内の export も検査したい場合だけ `includeEntryExports` を検討する
+- 通常モード（`knip`）は production code に加えて test・設定ファイルなどの開発経路も解析する。
+- production mode（`knip --production --strict`）は本番同梱コードに対象を絞る。test を外すために `ignore` や negated `project` を使わず、production mode を使う（test は plugin により `entry` になる）。
+- `test/` や `test-support/` を未使用コード検査から一律に除外しない。通常モードでは未使用コードとして検査し、production mode では出荷コードではないものとして扱う。詳細は「テスト対象とテスト支援コードの境界」に従う。
+- CI では両モードを実行し、それぞれの目的を分ける。
 
-#### project
+### 指摘を修正するときの手順
 
-`project` には、その workspace に属する解析対象のソース範囲を指定する。
+各 issue について「実際に不要」か「実行経路が Knip から見えていない」かの反証可能な仮説を立て、安価なチェックで確認・否定してから編集する。上流から順に、1 つの設計単位ずつ扱う。
 
-- build output、generated artifact、fixture など、プロダクトの source ではないものを適切な negated pattern で除外する
-- `project` の negation を、plugin が追加する test entry の除外や issue の抑制に使わない
-- `project` の glob が実際に意図したファイルに一致することを確認する
-- redundant pattern、no-match pattern、重複するデフォルト指定を残さない
-- パターンは workspace root からの相対パスで書く
+1. **configuration hint**: 設定の不足・冗長・no-match を先に解消する（`treatConfigHintsAsErrors` で CI 失敗条件にする）。
+2. **`files`（未使用ファイル）**: ファイル単位の原因を解消する。未使用ファイルはその中の `export`・依存の検出にも影響するため、下流の issue だけを ignore しない。
+3. **`unresolved`**: import、path alias、動的 import、生成物の扱いを正す。
+4. **`exports` / `types`**: 不要な `export`・型を削除する。実装詳細を公開するだけの `export` を足さない。
+5. **`dependencies` / `unlisted` / `binaries`**: 直接利用する依存を該当パッケージの `package.json` に宣言する。`unlisted binaries` はバイナリを提供する package を追加し、OS 等が提供すると根拠がある場合だけ `ignoreBinaries` を検討する。`ignoreDependencies` に足して終わりにしない。
 
-production mode 用のパターンは、必要な場合だけ末尾に `!` を付ける。先頭の `!` による negation と混同しない。
+各 issue が次のどれに当たるかを明示してから直す。
 
-### production mode と通常モード
+- 実際に不要 → 削除する。
+- 実行経路はあるが `entry` / `project` / plugin / 生成処理 / path 設定での表現が不足 → 表現を足す。`entry` 追加だけでなく、静的な registry や明示的なモジュール境界への変更も検討する。
+- 動的 import・自動登録・暗黙のファイル検出で module graph が不明確 → 静的に列挙できる形へ変える。
+- モジュールの責務・公開 API・workspace 間の依存方向の問題 → 利用側・型・設定・テストを含めた完成した変更にする。
+- テストが内部実装を直接参照している → 公開された振る舞いを検証する境界へ移す。
 
-production code と test / tooling code の検査目的を混ぜない。
+生成ファイルが絡む issue は、先に build / 生成を実行してから Knip を実行する。plugin の未対応・不完全が原因なら、plugin の設定・更新・修正を先に検討し、`entry` 追加や `ignore` は限定的な回避策とする。
 
-- 本番に同梱されるコードを確認するときは `--production --strict` を使う
-- test file を `ignore`、`entry`、`project` の除外で一律に消そうとしない。test は plugin によって entry になるため、production mode を使う
-- 通常モードでは test、設定ファイルを含む開発経路も検査対象として扱う
-- CI では production / strict と通常モードの両方を実行し、それぞれの目的を分ける
+### モジュール境界とテスト境界
 
-### 根本原因を直す
+- 本番コードを削除するときは、その振る舞い自体を廃止するのか、別モジュールへ移すのかを判断する。振る舞いを残すなら、対応するテストを削除せず変更後の公開境界へ移す。
+- テストが内部実装を import していることは、テスト削除の根拠にならない。必要な契約テストを公開境界に置く。
+- テストの期待値を変えるときは、Knip ではなく仕様・公開契約の変更が根拠であることを示す。外部から観測可能な振る舞いが変わるなら、リファクタリングではなく振る舞い変更として扱う。
 
-予期しない issue は、まず module graph の不足として調査する。
+### ignore は最後の手段
 
-- 設定ファイルが未到達なら、実際の tool の入口として `entry` に追加する
-- 動的 import や生成ファイルを追跡できないなら、静的に列挙できる entry、生成処理、plugin 設定を見直す
-- path alias が解決できないなら、既存の TypeScript / bundler 設定を確認し、必要なら `paths` を設定する
-- source が別 workspace を相対 import しているなら、workspace dependency と package import を検討する
-- 直接 import している依存が package manifest にないなら、transitive dependency に依存せず直接宣言する
-- 実際に不要なファイル、export、依存関係は削除する
+`ignore*` を使う前に、`entry` / `project` / plugin / 生成処理 / ソース修正で解消できないか確認する。使う場合は issue の種類に応じて最も狭い設定を選ぶ。
 
-依存関係を `ignoreDependencies` に追加して終わりにしてはならない。まず直接依存としての宣言、plugin の不足、設定値の追跡可能性を確認する。
+- `ignoreFiles`（未使用ファイル検出のみ）
+- `ignoreIssues`（ファイルパターン単位で issue 種別を無視）
+- `ignoreDependencies` / `ignoreBinaries` / `ignoreUnresolved` / `ignoreMembers`
+- `ignoreWorkspaces`（解析対象から外す理由を確認してから）
+- `ignore`（対象ファイルの全 issue 種別。最も広いので最後）
 
-### ignore の使い分け
+正当な `ignore*` は、実際に必要で、かつ生成物・外部設定・条件分岐・未対応 plugin などの理由で Knip が追跡できないものに限る。使ったら、対象 issue・根本対応できない理由・見直し条件を `knip.ts` のコメントまたは PR に明記する。
 
-ignore は最後の手段とし、issue の種類に応じて最も狭い設定を使う。
+### 検証
 
-- ignoreFiles
-- ignoreIssues
-- ignoreDependencies
-- ignoreWorkspaces
-- ignore
+- 通常モードと `--production --strict` の両方。必要なら `--debug` で workspace / `entry` / `project` / plugin / resolved files を確認する。
+- `files` → `unresolved` → `exports` / `types` → `dependencies` の順に確認する。
+- 関連する対象テスト・typecheck・lint を実行する。
+- `package.json` を変更したら、直接依存としての宣言と、該当パッケージディレクトリでの `package-lock.json` 更新を確認する。
+- 設定変更で issue を隠していないことを確認する。
 
-### Configuration hint
+### zero config から外れる場合
 
-configuration hint は `treatConfigHintsAsErrors` または CLI オプションで CI の失敗条件にする
+zero config で扱えないことを、直ちに設計不備と断定しない。生成ファイル、動的 import、HTML や外部サービスからの参照、未対応・不完全な plugin など、Knip の制約や実行時の性質による場合もある。ただし、同種の外部 `entry` を多数列挙する、`ignoreDependencies` が増え続ける、暗黙の自動登録や実行時の動的 import に依存する、workspace 間の相対 import で依存方向が不明確になる、通常の module を `entry` にしないと公開 API を検査できない、テストが内部実装を参照し続ける、といった兆候が複数あるときは、設定追加で終わらせず、確認できた事実・設計上の懸念・保守や検出精度への影響・選択肢（現構造 + 限定的な設定 / `entry`・registry・package 境界・テスト境界の再設計）を分けてユーザーに提示する。外部から観測可能な振る舞い・依存方向・公開 API に影響する設計変更は、ユーザーの判断を得てから行う。
 
 ## コメントの方針
 
