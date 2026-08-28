@@ -262,8 +262,8 @@ Biome の設定は、CLI・エディター・CI が同じ品質基準を共有�
 ### 対象バージョンと構成
 
 - Biome v2 を使う。`@biomejs/biome` は `package.json` の `devDependencies` で固定し、設定 schema と CLI の version を揃える。`latest` に依存して診断や整形結果を変動させない。gobo-cello の他リポジトリ(`aws-platform` / `blog` / `landing` / `suite-shuffle`)と version を揃え、片方だけ先行して結果が変わることを避ける。
-- 設定はリポジトリ直下の `biome.json` 一つで、`infra/`・`app/` を含むリポジトリ全体をカバーする。各ディレクトリに本当に異なる責務・言語・ライフサイクルが生じない限り nested configuration(`extends: "//"` を含む)は置かない。現在の `biome.json` は `vcs` 連携、`css.parser.tailwindDirectives`、および `overrides` を持つ。
-- 現在の `biome.json` は Formatter / Linter / Assist のルール上書きを持たず(後述の限定的な `overrides` を除く)、Biome の推奨ルールとデフォルト整形に従っている。これは意図した状態であり、目的を説明できないルール追加や formatter オプション追加をしない。
+- 設定はリポジトリ直下の `biome.json` 一つで、`infra/`・`app/` を含むリポジトリ全体をカバーする。各ディレクトリに本当に異なる責務・言語・ライフサイクルが生じない限り nested configuration(`extends: "//"` を含む)は置かない。現在の `biome.json` は `vcs` 連携、`css.parser.tailwindDirectives`、`linter`(下記)、および `overrides` を持つ。
+- 現在の `biome.json` は、Linter に `linter.domains.project`(module graph 解析)と `suspicious/noImportCycles`(`error`)だけを追加し、それ以外は Biome の推奨ルールとデフォルト整形に従っている。循環 import は初期化順序の不具合や refactoring 時の障害という実害があり、TypeScript / Knip / Vitest / actionlint のいずれでも検出できないため、目的と対象が明確な個別ルールとして採用する(`project` ドメインは recommended の `noPrivateImports` も持ち込むが、現状のコードに違反はなくモジュール境界のガードとして働く)。Formatter / Assist のルール上書きは持たず(後述の限定的な `overrides` を除く)、目的を説明できないルール追加や formatter オプション追加をしない。
 
 ### Formatter / Linter / Assist を分ける
 
