@@ -1,5 +1,5 @@
-name: Setup Node and install dependencies
-description: setup-node と npm cache の復元・npm ci を行う。cache の保存は main への push 時のみ行う。
+name: Setup Node and install npm dependencies
+description: Node.js のセットアップ、npm cache の復元、npm ci を行う。cache の保存は main の warm workflow から明示的に行う。
 
 inputs:
   working-directory:
@@ -7,41 +7,51 @@ inputs:
     required: false
     default: "."
   cache-write:
-    description: "true の場合、cache miss 時に npm cache を保存する(main 専用)"
+    description: "true の場合、cache miss 時に npm cache を保存する"
     required: false
     default: "false"
 
 runs:
   using: composite
   steps:
-    - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+    - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
       with:
         node-version-file: ".node-version"
+        package-manager-cache: false
 
-    - name: Corepack で package.json の packageManager を有効化する
+    - name: Setup npm
+      working-directory: ${{ inputs.working-directory }}
       shell: bash
       run: |
-        npm install --global corepack@latest
-        corepack enable
+        package_manager="$(node -p "require('./package.json').packageManager")"
+        npm install --global "$package_manager" --ignore-scripts --force
 
     - id: cache-key
       shell: bash
-      run: echo "key=npm-${{ runner.os }}-${{ inputs.working-directory }}-${{ hashFiles(format('{0}/package-lock.json', inputs.working-directory)) }}" >> "$GITHUB_OUTPUT"
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        LOCKFILE_HASH: ${{ hashFiles(format('{0}/package-lock.json', inputs.working-directory)) }}
+      run: |
+        node_version="$(node --version)"
+        printf 'node-version=%s\n' "$node_version" >> "$GITHUB_OUTPUT"
+        printf 'key=node-%s-npm-%s-%s-%s\n' \
+          "$node_version" "$RUNNER_OS" "$WORKING_DIRECTORY" "$LOCKFILE_HASH" >> "$GITHUB_OUTPUT"
 
     - id: cache-restore
-      uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.npm
         key: ${{ steps.cache-key.outputs.key }}
         restore-keys: |
-          npm-${{ runner.os }}-${{ inputs.working-directory }}-
+          node-${{ steps.cache-key.outputs.node-version }}-npm-${{ runner.os }}-${{ inputs.working-directory }}-
 
-    - working-directory: ${{ inputs.working-directory }}
-      run: npm ci --ignore-scripts
+    - name: Install dependencies
+      working-directory: ${{ inputs.working-directory }}
       shell: bash
+      run: npm ci --ignore-scripts
 
     - if: inputs.cache-write == 'true' && steps.cache-restore.outputs.cache-hit != 'true'
-      uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.npm
         key: ${{ steps.cache-key.outputs.key }}
