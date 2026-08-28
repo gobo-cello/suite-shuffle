@@ -20,6 +20,13 @@ jobs:
       - uses: ./.github/actions/setup-node-npm
       - run: npx biome ci --reporter=github .
 
+  test:
+    runs-on: ubuntu-slim
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: ./.github/actions/setup-node-npm
+      - run: npm test
+
   actionlint:
     runs-on: ubuntu-slim
     steps:
@@ -151,6 +158,7 @@ jobs:
   pr-ci-gate:
     needs:
       - biome
+      - test
       - actionlint
       - infra-build
       - infra-test

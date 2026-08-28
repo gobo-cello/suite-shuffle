@@ -18,6 +18,12 @@ runs:
       with:
         node-version-file: ".node-version"
 
+    - name: Corepack で package.json の packageManager を有効化する
+      shell: bash
+      run: |
+        npm install --global corepack@latest
+        corepack enable
+
     - id: cache-key
       shell: bash
       run: echo "key=npm-${{ runner.os }}-${{ inputs.working-directory }}-${{ hashFiles(format('{0}/package-lock.json', inputs.working-directory)) }}" >> "$GITHUB_OUTPUT"

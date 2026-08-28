@@ -6,6 +6,11 @@ updates:
       interval: "daily"
       time: "09:00"
       timezone: "Asia/Tokyo"
+    ignore:
+      # Node.js は .node-version の 24 系に固定しているため @types/node も 24 系に留める
+      - dependency-name: "@types/node"
+        versions:
+          - ">=25.0.0"
     groups:
       dependencies-major:
         patterns:
@@ -25,6 +30,11 @@ updates:
       interval: "daily"
       time: "09:00"
       timezone: "Asia/Tokyo"
+    ignore:
+      # Node.js は .node-version の 24 系に固定しているため @types/node も 24 系に留める
+      - dependency-name: "@types/node"
+        versions:
+          - ">=25.0.0"
     groups:
       dependencies-major:
         patterns:
@@ -44,6 +54,11 @@ updates:
       interval: "daily"
       time: "09:00"
       timezone: "Asia/Tokyo"
+    ignore:
+      # Node.js は .node-version の 24 系に固定しているため @types/node も 24 系に留める
+      - dependency-name: "@types/node"
+        versions:
+          - ">=25.0.0"
     groups:
       dependencies-major:
         patterns:
