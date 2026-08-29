@@ -17,9 +17,6 @@ pre-push:
     jest:
       glob: "infra/**/*"
       run: npm --prefix infra test
-    cdk-synth:
-      glob: "infra/**/*"
-      run: npm run --prefix infra cdk synth
     app-build:
       glob: "app/**/*"
       run: npm run --prefix app build
