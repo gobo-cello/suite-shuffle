@@ -175,14 +175,12 @@ Knip の設定と Knip 指摘への対応は、issue 数を減らして CI を�
 
 ### このリポジトリの Knip 構成
 
-対象は Knip v6。設定はリポジトリ直下の `knip.ts`（`KnipConfig` 型）に置き、`knip.ts` 内のコメントを各 `entry` / `ignore` の一次的な根拠とする。この節はその背景を補足する。
+対象は Knip v6。設定はリポジトリ直下の `knip.ts`（`KnipConfig` 型）に置き、各 `entry` / `ignore` の一次的な根拠は `knip.ts` 内のコメントに残す。設定の現状は `knip.ts` を参照し、この節は列挙ではなく背景と判断基準だけを補足する。
 
-- **npm workspaces ではない。** root の `package.json` に `workspaces` フィールドはなく、各パッケージディレクトリが独自の `package-lock.json` を持ち個別に `npm ci` される。`knip.ts` の `workspaces`（root は `.`）は、この独立したパッケージ群を Knip の解析単位として明示的に与えるためにある。
-- **CI ゲート。** `.github/workflows/pr-ci-gate.yml` の `knip` ジョブが、対象 workspace × `{通常, production}` で `npx knip [--workspace <w>]` と `--production --strict` を実行し、`--reporter github-actions` で PR を必須ブロックする。両モードが gate なので、ローカルでも `npm run knip` と `npm run knip:production` の両方を確認する。
-- **CDK と `tsx`。** CDK を持つ workspace では `tsx` が `cdk.json` の `"app"` から起動され `package.json` の scripts 経由ではないため、Knip の plugin 自動検出が実行経路を認識できない。これを補うために `entry: ["bin/*.ts!"]` と `ignoreDependencies: ["tsx"]` を明示している（末尾 `!` は production mode でも有効にする指定）。
-- **`workspaces`。** `.` / `app` / `infra` を解析単位として宣言し、`treatConfigHintsAsErrors: true` を設定する。
-- **`app`（Vite / React）。** `project` は全ソースを対象にしつつ `src/test-support/**` を production mode でのみ除外する（`!src/test-support/**!`）。共有 fixture / builder / factory / mock / fake を置くテスト専用ディレクトリで、通常モードでは未使用検査の対象、production mode では出荷対象外として扱う。入口は Vite plugin が解決するため `entry` の追加はない。
-- **`infra`（CDK）。** 上の「CDK と `tsx`」のとおり `entry: ["bin/infra.ts!"]` と `ignoreDependencies: ["tsx"]` を置く。
+- **npm workspaces ではない。** root の `package.json` に `workspaces` フィールドはなく、各パッケージディレクトリが独自の `package-lock.json` を持ち個別に `npm ci` される。`knip.ts` の `workspaces` は、この独立したパッケージ群を Knip の解析単位として明示的に与えるためにある。
+- **CI ゲート。** `.github/workflows/pr-ci-gate.yml` の `knip` ジョブが、対象 workspace × `{通常, production}` で `npx knip` と `--production --strict` を実行し、`--reporter github-actions` で PR を必須ブロックする。両モードが gate なので、ローカルでも `npm run knip` と `npm run knip:production` の両方を確認する。`treatConfigHintsAsErrors: true` で configuration hint も CI 失敗条件にする。
+- **CDK と `tsx`。** CDK を持つ workspace では `tsx` が `cdk.json` の `"app"` から起動され `package.json` の scripts 経由ではないため、Knip の plugin 自動検出が実行経路を認識できない。これを補う `entry` の明示と `ignoreDependencies: ["tsx"]` が必要になる（末尾 `!` は production mode でも有効にする指定）。
+- テスト専用ディレクトリ（共有 fixture / builder / factory / mock / fake を置く `src/test-support/**` など）は `project` の対象に含めつつ末尾 `!` で production mode のみ除外し、`ignore` では外さない。詳細は「テスト対象とテスト支援コードの境界」に従う。
 
 ### entry と project
 
@@ -262,8 +260,7 @@ Biome の設定は、CLI・エディター・CI が同じ品質基準を共有�
 ### 対象バージョンと構成
 
 - Biome v2 を使う。`@biomejs/biome` は `package.json` の `devDependencies` で固定し、設定 schema と CLI の version を揃える。`latest` に依存して診断や整形結果を変動させない。gobo-cello の他リポジトリ(`aws-platform` / `blog` / `landing` / `suite-shuffle`)と version を揃え、片方だけ先行して結果が変わることを避ける。
-- 設定はリポジトリ直下の `biome.json` 一つで、`infra/`・`app/` を含むリポジトリ全体をカバーする。各ディレクトリに本当に異なる責務・言語・ライフサイクルが生じない限り nested configuration(`extends: "//"` を含む)は置かない。現在の `biome.json` は `vcs` 連携、`css.parser.tailwindDirectives`、`linter`(下記)、および `overrides` を持つ。
-- 現在の `biome.json` は、Linter に `linter.domains.project`(module graph 解析)と `suspicious/noImportCycles`(`error`)だけを追加し、それ以外は Biome の推奨ルールとデフォルト整形に従っている。循環 import は初期化順序の不具合や refactoring 時の障害という実害があり、TypeScript / Knip / Vitest / actionlint のいずれでも検出できないため、目的と対象が明確な個別ルールとして採用する(`project` ドメインは recommended の `noPrivateImports` も持ち込むが、現状のコードに違反はなくモジュール境界のガードとして働く)。Formatter / Assist のルール上書きは持たず(後述の限定的な `overrides` を除く)、目的を説明できないルール追加や formatter オプション追加をしない。
+- 設定はリポジトリ直下の `biome.json` 一つで、`infra/`・`app/` を含むリポジトリ全体をカバーする。各ディレクトリに本当に異なる責務・言語・ライフサイクルが生じない限り nested configuration(`extends: "//"` を含む)は置かない。設定の現状は `biome.json` を参照する。
 
 ### Formatter / Linter / Assist を分ける
 
@@ -293,7 +290,7 @@ Biome の設定は、CLI・エディター・CI が同じ品質基準を共有�
 
 ### overrides と suppression は狭く保つ
 
-- 現在の `overrides` は、`**/*.html` の formatter 設定(`selfCloseVoidElements`)と、`app/public/**/*.svg` に対する `a11y/noSvgWithoutTitle` の無効化。いずれも明確な境界を持つ例外の範囲にとどめ、新たな `overrides` を広い glob で通常の source 全体へ広げない。適用順序と例外の理由を追跡可能にする。
+- `overrides` は明確な境界を持つ例外に限定し、広い glob で通常の source 全体へ広げない。適用順序と例外の理由を追跡可能にする。
 - ルールを無効化する前に、コードの修正、ルールの対象範囲、severity、`overrides` で表現できないかを検討する。
 - 個別の suppression コメントは false positive・外部仕様・生成コードなど、ソースを直せない理由がある場合の最後の手段とし、対象を最小限にして理由を必ず残す。同じ suppression が繰り返されるなら、個別の例外を増やす前に設定の境界・ドメイン・ルール選択・生成処理の設計を見直す。
 
