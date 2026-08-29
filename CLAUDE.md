@@ -196,7 +196,6 @@ Knip の設定と Knip 指摘への対応は、issue 数を減らして CI を�
 
 - 通常モード（`knip`）は production code に加えて test・設定ファイルなどの開発経路も解析する。
 - production mode（`knip --production --strict`）は本番同梱コードに対象を絞る。test を外すために `ignore` や negated `project` を使わず、production mode を使う（test は plugin により `entry` になる）。
-- `test/` や `test-support/` を未使用コード検査から一律に除外しない。通常モードでは未使用コードとして検査し、production mode では出荷コードではないものとして扱う。詳細は「テスト対象とテスト支援コードの境界」に従う。
 - CI では両モードを実行し、それぞれの目的を分ける。
 
 ### 指摘を修正するときの手順
