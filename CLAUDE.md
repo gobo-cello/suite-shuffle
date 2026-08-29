@@ -1,60 +1,36 @@
 # suite-shuffle
 
-Suite Shuffleのアプリケーション・コンテンツ・ワークロード用インフラを管理するリポジトリ。
+## このファイルの位置づけ
 
-## このリポジトリで管理するもの
+- source of truth はソースコードと設定ファイルとする。CLAUDE.md はそれを説明・要約しない。
+- CLAUDE.md に書くのは、コードを読んでも分からないことだけに限ること。
+  - 実行して確かめられる指示(完了前チェックなど)。
+  - 取り決め(コミット / PR / デプロイ運用、このリポジトリの管理範囲)。
+  - コードに痕跡が残らない「なぜ」と、意図的に採らない選択。
+  - 事故を防ぐための落とし穴の位置。
+- ディレクトリ構成の解説、実装の説明、API の一覧など「現状どうなっているか」は書かないこと。変更に追従されず、古い記述が誤誘導になる。
+- 特定のファイルやパスを編集するときだけ必要になる方針は `.claude/rules/` に置き、CLAUDE.md には常時必要なものだけ残すこと。
 
-- Suite Shuffleのアプリケーションコード
-- Suite Shuffleの本番(`suite-shuffle-production`)・検証(`suite-shuffle-sandbox`)ワークロード用 Infrastructure as Code(`infra/`)
-- Suite Shuffleのデプロイに関する GitHub Actions と AWS の OIDC 連携
+## 概要とスコープ
 
-## このリポジトリで管理しないもの
-
-- AWS Organizations、Management accountの設定
-- CloudTrailログの一元管理、IAM Access Analyzerなど組織横断の監査・セキュリティ基盤
-- Service Control Policy
-- AWSルートユーザーの認証情報
-- IAM Identity Centerのユーザー
-- 連絡先メールアドレス
-- ドメインレジストラの認証情報
-- シークレットおよびAPIキー
-- apex hosted zone(`aws-platform`リポジトリが所有)。Suite Shuffle 用サブドメインの hosted zone はこのリポジトリで作成し、apex からの NS 委譲で連携する(詳細は`aws-platform`リポジトリの`docs/adr/0005-dns-delegation.md`)
-
-組織レベルの共通基盤は、別のInfrastructure as Codeリポジトリ(`aws-platform`)で管理する。このリポジトリは、そのリポジトリが提供するアカウント構成やログ基盤を前提として、Suite Shuffle固有のワークロードだけを扱う。
-
-## ディレクトリ構成と主要コマンド
-
-各ディレクトリは独立した`package.json`を持つ。ルートには Biome / Knip / lefthook の設定だけがある。
-
-- `app/`: Suite Shuffle 本体(Vite + React)。`npm --prefix app run dev` / `run build` / `run test:unit` / `run test:dom`
-- `infra/`: ワークロード用の CDK。`npm --prefix infra run build` / `test` / `run cdk synth` / `run cdk diff <stack...>`。エントリポイントは`infra/bin/infra.ts`で、ターゲット指定に関わらず全 stack を構築する
-- `docs/`: ドキュメント。ADR は`docs/adr/`
-- `scripts/`: 補助スクリプト(`actionlint.sh`など)
-- ルート: `npm run check`(Biome、safe fix のみ) / `npm run knip` / `npm run knip:production`
+- このリポジトリの目的、管理するもの・しないもの、他リポジトリとの境界、ディレクトリ構成、ローカルでの開発手順は `README.md` を参照すること。
 
 ## トピック別ルール(`.claude/rules/`)
 
-特定のファイルを編集するときだけ必要になる方針は、`.claude/rules/`配下のファイルに分割し、`paths` frontmatter で対象を絞っている。該当するファイルを Claude が読むと、そのルールが自動でコンテキストに読み込まれる。ファイルを開かない設計相談などでは読み込まれないため、必要なら明示的に参照すること。
-
-- `typescript.md`: TypeScript の型設計指針
-- `testing.md`: テスト対象とテスト支援コードの境界、テストの記述方針、テスト実行環境の使い分け
-- `knip.md`: Knip の方針
-- `biome.md`: Biome 設定の方針
-- `infra-env-vars.md`: 環境変数を追加・変更する際に確認するファイル
-- `github-actions.md`: GitHub Actions のバージョン固定
+特定のファイルやパスを編集するときだけ必要になる方針は、`.claude/rules/` 配下に `paths` frontmatter 付きで置いてある。対象ファイルを読むと自動でコンテキストに読み込まれる。ファイルを開かない設計相談などでは読み込まれないため、必要なら明示的に参照すること。
 
 ## デプロイ
 
-- デプロイは GitHub Actions(`.github/workflows/deploy.yml`)経由のみで行う。ローカルや手動での`cdk deploy`は行わない。
-- `main`への push で`app/**`・`infra/**`などが変更されると起動し、`sandbox` → `production`の順に GitHub Environments へ OIDC でロールを引き受けてデプロイする。
+- デプロイは GitHub Actions(`.github/workflows/deploy.yml`)経由のみで行う。ローカルや手動での`cdk deploy`は行わない(初回セットアップを除く。手順は`README.md`)。
+- デプロイのトリガ条件・環境の遷移・認証は `README.md` と `.github/workflows/deploy.yml` を参照。
 
 ## 品質確認と完了前チェック
 
 - コードを変更したら、対象スタックの formatter / linter を実行すること。
   - JavaScript / TypeScript / JSON: ルートの Biome。`npm run check`(safe fix のみ)。`--unsafe`は自動では使わず、必要なときだけ手動で`npm run check:unsafe`を実行し、diff を確認すること。
   - GitHub Actions ワークフロー: `./scripts/actionlint.sh -color`
-- 変更が`lefthook.yml`の`pre-push`対象(`infra`/`app`の build・test(`test:unit`・`test:dom`)、`cdk synth`、`knip`、`knip:production`、`actionlint`)に該当する場合は、作業完了前に該当チェックを実行し、通してから完了とすること。失敗した場合は原因を修正し、同じチェックを再実行すること。
-- Knip は green にすることを目的にせず、「Knip 設定の方針」節と根本原因修正の手順に従うこと。通常モードと`--production --strict`の両方を確認すること。
+- 変更が`lefthook.yml`の`pre-push`対象に該当する場合は、作業完了前に該当チェックをローカルで実行し、通してから完了とすること。失敗した場合は原因を修正し、同じチェックを再実行すること。対象と内容は`lefthook.yml`を参照。
+- Knip は green にすること自体を目的にせず、`.claude/rules/knip.md`の方針と根本原因修正の手順に従うこと。通常モードと`--production --strict`の両方を確認すること。
 - PR の CI(`.github/workflows/pr-ci-gate.yml`)は上記と同じチェックを実行する。ローカルで通してから push すること。
 
 ## コードのドメイン非依存の原則
