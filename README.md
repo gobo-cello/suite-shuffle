@@ -17,8 +17,6 @@ AWS Organizations全体の共通基盤(監査ログの一元管理、Service Con
 - GitHub ActionsとAWSのOIDC連携
 - GitHub Actions用のIAM role
 
-実装されていない項目については、今後このリポジトリへ段階的に追加します。
-
 ## 管理対象外
 
 次の情報およびリソースは、このリポジトリでは管理しません。
@@ -76,6 +74,8 @@ suite-shuffle/
 │   ├── src/
 │   ├── package.json
 │   └── tsconfig.json
+├── docs/
+│   └── adr/               # Architecture Decision Record
 ├── .github/
 │   ├── actions/
 │   ├── workflows/
@@ -92,9 +92,9 @@ suite-shuffle/
 
 このツリーは各ディレクトリの役割を示す骨格であり、網羅的なファイル一覧ではありません。
 
-`app/`のMVPにおけるデータモデル・技術選定・UI設計方針(モードレスデザインの採用など)は[ADR 0001](./docs/adr/0001-mvp-implementation-approach.md)を参照してください。ADR 0001の実装順序に対する現在の実装状況は次のとおりです。
+`app/`のMVPにおけるデータモデル・技術選定・UI設計方針(モードレスデザインの採用など)は[ADR 0001](./docs/adr/0001-mvp-implementation-approach.md)を参照してください。
 
-- 実装済み: `Track`/`TrackGroup`/`Playlist`のドメインモデルとURLパーサー(`app/src/domain/`)、`localStorage`による永続化(`app/src/storage/`)、YouTube IFrame Player APIによる再生と`TrackGroup`単位のシャッフル(`app/src/player/`)、プレイリスト管理UI(`app/src/App.tsx`)。URLを貼り付けての`TrackGroup`追加・削除に加え、複数`TrackGroup`を選択して1つの`TrackGroup`にまとめる操作にも対応しています
+`app/src/`はドメインモデル(`domain/`)、`localStorage`永続化(`storage/`)、YouTube IFrame Player APIによる再生(`player/`・`youtube/`)、ドラッグ&ドロップ(`drag-and-drop/`)、UIコンポーネント(`track-group-list/`・`App.tsx`)などに分かれています。現在の実装範囲と各モジュールの責務は`app/src/`を直接参照してください。
 
 `infra/`配下は次の責務で分割しています。
 
@@ -191,7 +191,7 @@ npm run check
 git hooksには[lefthook](https://github.com/evilmartians/lefthook)を使用します。`npm ci`実行時に`prepare`スクリプトが自動的に`lefthook install`を実行します。
 
 - pre-commit: 変更されたファイルへBiomeを適用します。
-- pre-push: `infra/`でbuild、テスト、`cdk synth`、`app/`でbuild、テストを実行します。
+- pre-push: 変更されたディレクトリに応じて `infra/`(build・テスト・`cdk synth`)、`app/`(build・`test:unit`・`test:dom`)を実行し、あわせてKnipとactionlintを実行します。対象と内容は`lefthook.yml`を参照してください。
 - commit-msg: Conventional Commitsの形式を検証します。
 
 ## AWS CLIプロファイル
@@ -255,13 +255,13 @@ GitHub ActionsからAWSへは、OIDCによる一時認証だけを使用しま�
    - Environment `sandbox` Variables: `AWS_SUITE_SHUFFLE_SANDBOX_DEPLOY_ROLE_ARN`(手順3のSandbox側ARN)
    - Environment `production` Variables: `AWS_SUITE_SHUFFLE_PRODUCTION_DEPLOY_ROLE_ARN`(手順3のProduction側ARN)
 
-以降は、Pull Requestでの`cdk diff`、`main`へのmergeによる`deploy.yml`の自動実行(`sandbox` job)、その成功後の`production` jobの承認付き実行で運用します。
+以降は、`main`へのmergeで`deploy.yml`が`sandbox` job →`production` job(承認付き)の順に自動実行されます。各 job は GitHub Deploy Role・DNS stack・Hosting stack をデプロイします。
 
 ## ドメインとDNS
 
-`suite-shuffle.gobo-cello.com`のhosted zoneと、CloudFront用のACM証明書(DNS検証)を`ProductionDnsStack`で管理しています。`sandbox.suite-shuffle.gobo-cello.com`は同様に`SandboxDnsStack`で管理しています。
+`suite-shuffle.example.com`のhosted zoneと、CloudFront用のACM証明書(DNS検証)を`ProductionDnsStack`で管理しています。`sandbox.suite-shuffle.example.com`は同様に`SandboxDnsStack`で管理しています。
 
-CloudFrontで使用するACM証明書は`us-east-1`でしか発行できないため、`suite-shuffle-production`accountの主リージョン(`ap-northeast-1`)とは別に`us-east-1`のCDK bootstrapが必要です。また、apex hosted zone(`gobo-cello.com`)は`aws-platform`リポジトリが管理しており、cross-repositoryでのname server受け渡しが必要なため、次の順序で1回だけ手動セットアップします。
+CloudFrontで使用するACM証明書は`us-east-1`でしか発行できないため、`suite-shuffle-production`accountの主リージョン(`ap-northeast-1`)とは別に`us-east-1`のCDK bootstrapが必要です。また、apex hosted zone(`example.com`)は`aws-platform`リポジトリが管理しており、cross-repositoryでのname server受け渡しが必要なため、次の順序で1回だけ手動セットアップします。
 
 1. `suite-shuffle-production`accountで、`us-east-1`のCDK bootstrapを実行します。
 
@@ -279,9 +279,9 @@ CloudFrontで使用するACM証明書は`us-east-1`でしか発行できない�
 
 3. deploy出力の`SuiteShuffleHostedZoneNameServers`を、`aws-platform`リポジトリの`SUITE_SHUFFLE_SUBDOMAIN_NAME_SERVERS`環境変数に設定し、`aws-platform`側の`DnsStack`を再deployします。
 
-4. `dig suite-shuffle.gobo-cello.com NS`で委譲が反映されていること、`aws acm describe-certificate`等で証明書が`ISSUED`になっていることを確認します。
+4. `dig suite-shuffle.example.com NS`で委譲が反映されていること、`aws acm describe-certificate`等で証明書が`ISSUED`になっていることを確認します。
 
-`sandbox.suite-shuffle.gobo-cello.com`は`suite-shuffle.gobo-cello.com`のhosted zoneからNS delegationを受けるため、上記の後に続けて次の手順を1回だけ手動セットアップします。
+`sandbox.suite-shuffle.example.com`は`suite-shuffle.example.com`のhosted zoneからNS delegationを受けるため、上記の後に続けて次の手順を1回だけ手動セットアップします。
 
 5. `suite-shuffle-sandbox`accountで、`us-east-1`のCDK bootstrapを実行します。
 
@@ -304,7 +304,7 @@ CloudFrontで使用するACM証明書は`us-east-1`でしか発行できない�
    npx cdk deploy ProductionDnsStack --profile suite-shuffle-production
    ```
 
-8. `dig sandbox.suite-shuffle.gobo-cello.com NS`で委譲が反映されていること、証明書が`ISSUED`になっていることを確認します。
+8. `dig sandbox.suite-shuffle.example.com NS`で委譲が反映されていること、証明書が`ISSUED`になっていることを確認します。
 
 ## Git運用
 
