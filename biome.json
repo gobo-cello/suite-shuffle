@@ -7,11 +7,12 @@
 	},
 	"linter": {
 		"domains": {
-			"project": "recommended"
+			"project": "recommended",
+			"types": "recommended"
 		},
 		"rules": {
 			"suspicious": {
-				"noImportCycles": "error"
+				"noImportCycles": "on"
 			}
 		}
 	},
